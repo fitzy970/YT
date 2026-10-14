@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>yt</title>
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}#p,iframe{position:absolute;inset:0;width:100%;height:100%;border:0}</style>
+</head>
+<body>
+<div id="p"></div>
+<script>
+// Host on any https site (GitHub Pages). It plays the video muted and
+// reports back to the loading screen: {source:'vvd-yt', type:'playing'|'error'|'ready'|'state'}
+var q = new URLSearchParams(location.search);
+var id = q.getAll('v').filter(function (x) { return /^[\w-]{11}$/.test(x); }).pop() || 'TPwYw_rNMoc'; // default: your video
+function say(o){ o.source = 'vvd-yt'; try { parent.postMessage(o, '*'); } catch(e){} }
+var player;
+say({ type: 'hello', href: location.href });
+window.onerror = function (m, u, l) { say({ type: 'error', code: 'js: ' + m + ' @' + l }); };
+setTimeout(function () { if (!player) say({ type: 'error', code: 'api-timeout (YouTube iframe_api never became ready)' }); }, 7000);
+window.onYouTubeIframeAPIReady = function () {
+  var vars = { autoplay: 1, mute: 1, controls: 0, rel: 0, loop: 1, playlist: id,
+               playsinline: 1, modestbranding: 1, iv_load_policy: 3, disablekb: 1,
+               origin: location.origin };
+  if (q.get('start')) vars.start = +q.get('start');
+  if (q.get('end')) vars.end = +q.get('end');
+  try {
+  player = new YT.Player('p', {
+    host: 'https://www.youtube-nocookie.com',
+    videoId: id,
+    width: '100%', height: '100%',
+    playerVars: vars,
+    events: {
+      onReady: function (e) {
+        say({ type: 'ready' });
+        e.target.mute();
+        try { e.target.setPlaybackQuality('hd1080'); } catch (x) {}
+        e.target.playVideo();
+      },
+      onStateChange: function (e) {
+        say({ type: 'state', code: e.data });
+        if (e.data === 1) {                       // playing
+          try { e.target.setPlaybackQuality('hd1080'); } catch (x) {}
+          say({ type: 'playing' });
+        }
+        if (e.data === 0) e.target.playVideo();   // ended -> loop
+        if (e.data === 5 || e.data === -1) setTimeout(function(){ try{ e.target.playVideo(); }catch(x){} }, 500);
+      },
+      onError: function (e) { say({ type: 'error', code: e.data }); }
+    }
+  });
+  } catch (x) { say({ type: 'error', code: 'init: ' + x }); }
+};
+var s = document.createElement('script');
+s.src = 'https://www.youtube.com/iframe_api';
+s.onerror = function(){ say({ type:'error', code:'api-script-blocked' }); };
+document.head.appendChild(s);
+</script>
+</body>
+</html>
